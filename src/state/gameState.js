@@ -35,7 +35,8 @@ export class GameState {
       coinMultiplier: 0,
       rollFrequency: 0,
       critChance: 0,
-      trayMagnetism: 0
+      trayMagnetism: 0,
+      cursorArea: 0
     };
 
     // Skill Tree progress { [nodeId]: level }

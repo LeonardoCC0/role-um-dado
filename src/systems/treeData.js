@@ -319,6 +319,34 @@ export const SKILL_TREE_NODES = {
   },
 
   // === BRANCH 4: MAESTRIA DE DADOS & FÍSICA ===
+  tree_cursor_aura: {
+    id: 'tree_cursor_aura',
+    name: 'Aura do Cursor',
+    icon: '⭕',
+    branch: 'physics',
+    x: -70,
+    y: 55,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [4, 12, 25],
+    reqs: ['tree_origin'],
+    desc: 'Cria uma aura de alcance ao redor do cursor do mouse, expandindo o raio de ativação dos dados em +25% por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 25}% raio da área do mouse` : '+25% raio da área do mouse'
+  },
+  tree_gravitational_reach: {
+    id: 'tree_gravitational_reach',
+    name: 'Vórtice do Cursor',
+    icon: '🌀',
+    branch: 'physics',
+    x: -140,
+    y: 105,
+    maxLevel: 2,
+    costResource: 'stardust',
+    costs: [30, 70],
+    reqs: ['tree_cursor_aura'],
+    desc: 'Amplia a área do mouse em mais +40% por nível e atrai magneticamente os dados próximos em direção ao cursor.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 40}% raio do cursor e atração magnética` : '+40% raio do cursor e atração'
+  },
   tree_expanded_tray: {
     id: 'tree_expanded_tray',
     name: 'Mesa Ampliada',

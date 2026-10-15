@@ -125,6 +125,7 @@ export class Board2D {
       this.mousePrevX = this.mouseX;
       this.mousePrevY = this.mouseY;
       this.isMouseOnBoard = true;
+      this.checkMouseDiceCollision();
     });
 
     this.canvas.addEventListener('mouseleave', () => {
@@ -143,6 +144,7 @@ export class Board2D {
         this.mousePrevX = this.mouseX;
         this.mousePrevY = this.mouseY;
         this.isMouseOnBoard = true;
+        this.checkMouseDiceCollision();
       }
     }, { passive: true });
 
@@ -161,9 +163,15 @@ export class Board2D {
   checkMouseDiceCollision() {
     const rollPowerLvl = this.gameState.commonUpgrades?.rollPower || 0;
     const powerMult = 1 + rollPowerLvl * 0.12;
-    const hitRadius = this.dieSize * 0.75;
+    const cursorRadius = Formulas.getCursorRadius(this.gameState);
+    const hitRadius = cursorRadius + (this.dieSize * 0.55);
 
     for (const die of this.dice) {
+      // Do not allow re-rolling if the die is currently in the air or rolling
+      if (die.isAirborne || die.z > 0 || die.isRolling) {
+        continue;
+      }
+
       const dx = die.x - this.mouseX;
       const dy = die.y - this.mouseY;
       const dist = Math.hypot(dx, dy);
@@ -186,8 +194,13 @@ export class Board2D {
         die.vx = Math.max(-800, Math.min(800, die.vx + pushVx));
         die.vy = Math.max(-800, Math.min(800, die.vy + pushVy));
 
+        // Upward jump impulse ("subindo")
+        die.z = 0;
+        die.vz = 360 + Math.random() * 80;
+        die.isAirborne = true;
+
         // Add rotational torque based on hit angle
-        die.vRot += ((Math.random() - 0.5) * 16 + (pushVx - pushVy) * 0.02) * powerMult;
+        die.vRot += ((Math.random() - 0.5) * 18 + (pushVx - pushVy) * 0.02) * powerMult;
 
         die.isRolling = true;
         die.hasScored = false;
@@ -201,7 +214,7 @@ export class Board2D {
         }
 
         // Spawn contact sparkle particles
-        this.spawnSparks(die.x, die.y, 4, '#fbbf24');
+        this.spawnSparks(die.x, die.y, 6, '#fbbf24');
       }
     }
   }
@@ -250,6 +263,9 @@ export class Board2D {
           y: ry,
           vx: (Math.random() - 0.5) * 40,
           vy: (Math.random() - 0.5) * 40,
+          z: 0,
+          vz: 0,
+          isAirborne: false,
           rotation: Math.random() * Math.PI * 2,
           vRot: (Math.random() - 0.5) * 4,
           face: 1 + Math.floor(Math.random() * 6),
@@ -300,11 +316,16 @@ export class Board2D {
     const powerMult = (1 + rollPowerLvl * 0.12) * power;
 
     for (const die of this.dice) {
+      if (die.isAirborne || die.z > 0) continue;
+
       const angle = Math.random() * Math.PI * 2;
-      const speed = (280 + Math.random() * 200) * powerMult;
+      const speed = (260 + Math.random() * 180) * powerMult;
 
       die.vx = Math.cos(angle) * speed;
       die.vy = Math.sin(angle) * speed;
+      die.z = 0;
+      die.vz = (350 + Math.random() * 70) * Math.min(1.3, powerMult);
+      die.isAirborne = true;
       die.vRot = (Math.random() - 0.5) * 18 * powerMult;
       die.isRolling = true;
       die.hasScored = false;
@@ -353,9 +374,12 @@ export class Board2D {
     for (const hand of this.helperHands) {
       hand.swipeTimer += dt;
 
-      if (!hand.targetDie || hand.swipeTimer >= swipeInterval) {
+      if (!hand.targetDie || hand.swipeTimer >= swipeInterval || hand.targetDie.isAirborne || hand.targetDie.z > 0) {
         hand.swipeTimer = 0;
-        if (this.dice.length > 0) {
+        const availableDice = this.dice.filter(d => !d.isAirborne && (d.z || 0) === 0);
+        if (availableDice.length > 0) {
+          hand.targetDie = availableDice[Math.floor(Math.random() * availableDice.length)];
+        } else if (this.dice.length > 0) {
           hand.targetDie = this.dice[Math.floor(Math.random() * this.dice.length)];
         }
       }
@@ -373,8 +397,8 @@ export class Board2D {
           hand.vy = (dy / dist) * handSpeed;
           hand.x += hand.vx * dt;
           hand.y += hand.vy * dt;
-        } else {
-          // Reached die: SWIPE and push it!
+        } else if (!hand.targetDie.isAirborne && (hand.targetDie.z || 0) === 0) {
+          // Reached die: SWIPE and pop it up!
           const quantum = !!this.gameState.skillTree['tree_quantum_hands'];
           const boost = (quantum && Math.random() < 0.25) ? 2.2 : 1.0;
           const flickAngle = hand.angle + (Math.random() - 0.5) * 0.8;
@@ -382,6 +406,9 @@ export class Board2D {
 
           hand.targetDie.vx += Math.cos(flickAngle) * flickSpeed;
           hand.targetDie.vy += Math.sin(flickAngle) * flickSpeed;
+          hand.targetDie.z = 0;
+          hand.targetDie.vz = (340 + Math.random() * 70) * boost;
+          hand.targetDie.isAirborne = true;
           hand.targetDie.vRot += (Math.random() - 0.5) * 16;
           hand.targetDie.isRolling = true;
           hand.targetDie.hasScored = false;
@@ -422,23 +449,38 @@ export class Board2D {
       }
     }
 
-    // 3. Update Dice Physics (Move, Wall Bounce, Friction, Settle Detection)
+    // 3. Update Dice Physics (Jump / Air, Wall Bounce, Friction, Settle Detection)
     const magnetismLvl = this.gameState.commonUpgrades?.trayMagnetism || 0;
     const bouncierWallsLvl = this.gameState.skillTree?.['tree_bouncier_walls'] || 0;
     const wallRestitution = 0.65 + bouncierWallsLvl * 0.12;
 
-    const friction = 0.982;
-    const angFriction = 0.975;
+    const gravity = 1200; // Snappy, responsive vertical gravity (~0.6s total air flight)
     const half = this.dieSize / 2;
 
     const centerX = this.arena.x + this.arena.width / 2;
     const centerY = this.arena.y + this.arena.height / 2;
 
+    // Skill tree vortex suction towards mouse
+    if (this.isMouseOnBoard && this.gameState.skillTree['tree_gravitational_reach']) {
+      const reachRadius = Formulas.getCursorRadius(this.gameState) * 1.3;
+      const pullPower = 35 * this.gameState.skillTree['tree_gravitational_reach'];
+      for (const d of this.dice) {
+        if (d.isAirborne || (d.z || 0) > 0) continue;
+        const dx = this.mouseX - d.x;
+        const dy = this.mouseY - d.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < reachRadius && dist > 15) {
+          d.vx += (dx / dist) * pullPower * dt;
+          d.vy += (dy / dist) * pullPower * dt;
+        }
+      }
+    }
+
     for (let i = 0; i < this.dice.length; i++) {
       const d = this.dice[i];
 
-      // Central Magnetism
-      if (magnetismLvl > 0) {
+      // Central Magnetism (only grounded dice)
+      if (magnetismLvl > 0 && !d.isAirborne) {
         const toCx = centerX - d.x;
         const toCy = centerY - d.y;
         const dist = Math.hypot(toCx, toCy);
@@ -449,24 +491,51 @@ export class Board2D {
         }
       }
 
+      // 3D Airborne Dynamics
+      if (d.isAirborne) {
+        d.vz -= gravity * dt;
+        d.z += d.vz * dt;
+
+        // Air damping
+        d.vx *= 0.97;
+        d.vy *= 0.97;
+        d.vRot *= 0.965;
+
+        // Rapidly tumble faces while rolling in air
+        if (Math.random() < 0.35) {
+          d.displayFace = 1 + Math.floor(Math.random() * 6);
+        }
+
+        // Ground landing touchdown
+        if (d.z <= 0) {
+          d.z = 0;
+          d.vz = 0;
+          d.isAirborne = false;
+
+          // Impact sparks & immediate settlement
+          const tier = DICE_TIERS[d.tierIndex] || DICE_TIERS[0];
+          this.spawnSparks(d.x, d.y, 8, tier.color);
+          this.settleDie(d);
+        }
+      } else {
+        // Ground friction (quick deceleration)
+        d.vx *= 0.935;
+        d.vy *= 0.935;
+        d.vRot *= 0.91;
+
+        // Ground roll fallback
+        if (d.isRolling && !d.hasScored) {
+          d.settleTimer += dt;
+          if (d.settleTimer >= 0.15 || Math.hypot(d.vx, d.vy) < 20) {
+            this.settleDie(d);
+          }
+        }
+      }
+
       // Move
       d.x += d.vx * dt;
       d.y += d.vy * dt;
       d.rotation += d.vRot * dt;
-
-      // Apply Friction
-      d.vx *= friction;
-      d.vy *= friction;
-      d.vRot *= angFriction;
-
-      const speed = Math.hypot(d.vx, d.vy);
-
-      // Rapidly tumble faces while rolling fast
-      if (speed > 80 || Math.abs(d.vRot) > 2.0) {
-        if (Math.random() < 0.25) {
-          d.displayFace = 1 + Math.floor(Math.random() * 6);
-        }
-      }
 
       // Wall Bounce (Arena Boundaries)
       const minX = this.arena.x + half;
@@ -534,18 +603,6 @@ export class Board2D {
           sounds.playDiceRattle();
         }
       }
-
-      // Settlement detection (speed < 18 and vRot < 0.8)
-      if (d.isRolling && !d.hasScored) {
-        if (speed < 18 && Math.abs(d.vRot) < 0.8) {
-          d.settleTimer += dt;
-          if (d.settleTimer >= 0.22) {
-            this.settleDie(d);
-          }
-        } else {
-          d.settleTimer = 0;
-        }
-      }
     }
 
     // 4. Update Particles
@@ -572,8 +629,11 @@ export class Board2D {
 
   settleDie(die) {
     die.isRolling = false;
+    die.isAirborne = false;
     die.hasScored = true;
     die.settleTimer = 0;
+    die.z = 0;
+    die.vz = 0;
 
     // Pick final random landing face 1..6
     const face = 1 + Math.floor(Math.random() * 6);
@@ -689,7 +749,13 @@ export class Board2D {
     this.ctx.fillText('👉 PASSE O MOUSE POR CIMA DOS DADOS PARA ROLAR!', x + width / 2, y + height - 16);
     this.ctx.restore();
 
-    // 2. Draw Shooting Stars (tree_shooting_stars)
+    // 2. Draw Interactive Mouse Area Aura on Table
+    if (this.isMouseOnBoard) {
+      const cursorRadius = Formulas.getCursorRadius(this.gameState);
+      this.drawMouseAura(this.mouseX, this.mouseY, cursorRadius);
+    }
+
+    // 3. Draw Shooting Stars (tree_shooting_stars)
     for (const star of this.shootingStars) {
       this.ctx.save();
       this.ctx.translate(star.x, star.y);
@@ -721,17 +787,17 @@ export class Board2D {
       this.ctx.restore();
     }
 
-    // 3. Draw 2D Dice
+    // 4. Draw 2D Dice
     for (const die of this.dice) {
       this.drawDie(die);
     }
 
-    // 4. Draw Helper Hands
+    // 5. Draw Helper Hands
     for (const hand of this.helperHands) {
       this.drawHand(hand);
     }
 
-    // 5. Draw Particles
+    // 6. Draw Particles
     for (const p of this.particles) {
       this.ctx.save();
       this.ctx.globalAlpha = Math.max(0, p.life);
@@ -742,7 +808,7 @@ export class Board2D {
       this.ctx.restore();
     }
 
-    // 6. Draw Floating Texts
+    // 7. Draw Floating Texts
     for (const ft of this.floatingTexts) {
       this.ctx.save();
       this.ctx.globalAlpha = Math.max(0, ft.life);
@@ -760,29 +826,113 @@ export class Board2D {
     }
   }
 
+  // Draw Dynamic Mouse Aura and Reticle on Table
+  drawMouseAura(x, y, radius) {
+    const time = performance.now();
+    const hasSuction = !!this.gameState.skillTree['tree_gravitational_reach'];
+    const pulse = Math.sin(time * 0.005) * 0.05;
+    const r = radius * (1 + pulse);
+
+    this.ctx.save();
+
+    // Radial gradient glow filling the mouse interaction area
+    const auraGrad = this.ctx.createRadialGradient(x, y, 0, x, y, r);
+    if (hasSuction) {
+      auraGrad.addColorStop(0, 'rgba(192, 132, 252, 0.08)');
+      auraGrad.addColorStop(0.7, 'rgba(147, 51, 234, 0.16)');
+      auraGrad.addColorStop(1, 'rgba(56, 189, 248, 0.32)');
+    } else {
+      auraGrad.addColorStop(0, 'rgba(56, 189, 248, 0.05)');
+      auraGrad.addColorStop(0.7, 'rgba(56, 189, 248, 0.14)');
+      auraGrad.addColorStop(1, 'rgba(56, 189, 248, 0.28)');
+    }
+
+    this.ctx.fillStyle = auraGrad;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, r, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Rotating boundary dashed ring
+    this.ctx.strokeStyle = hasSuction ? 'rgba(192, 132, 252, 0.75)' : 'rgba(56, 189, 248, 0.75)';
+    this.ctx.lineWidth = 2;
+    this.ctx.shadowColor = hasSuction ? '#a855f7' : '#38bdf8';
+    this.ctx.shadowBlur = 10;
+    this.ctx.setLineDash([7, 5]);
+    this.ctx.lineDashOffset = -time * 0.02;
+
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, r, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    // Reset dash & shadow
+    this.ctx.setLineDash([]);
+    this.ctx.shadowBlur = 0;
+
+    // Reticle crosshair ticks on the ring perimeter
+    const rot = (time * 0.001) % (Math.PI * 2);
+    for (let i = 0; i < 4; i++) {
+      const a = rot + (i * Math.PI) / 2;
+      const inR = r - 5;
+      const outR = r + 5;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + Math.cos(a) * inR, y + Math.sin(a) * inR);
+      this.ctx.lineTo(x + Math.cos(a) * outR, y + Math.sin(a) * outR);
+      this.ctx.strokeStyle = hasSuction ? 'rgba(216, 180, 254, 0.9)' : 'rgba(125, 211, 252, 0.9)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+    }
+
+    // Glowing center pointer
+    this.ctx.fillStyle = hasSuction ? '#c084fc' : '#38bdf8';
+    this.ctx.shadowColor = hasSuction ? '#c084fc' : '#38bdf8';
+    this.ctx.shadowBlur = 8;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.restore();
+  }
+
   drawDie(die) {
     const tier = DICE_TIERS[die.tierIndex] || DICE_TIERS[0];
     const size = this.dieSize;
     const half = size / 2;
+    const z = Math.max(0, die.z || 0);
 
+    // 3D elevation offsets: die rises upward on screen and expands
+    const visualY = die.y - z * 0.45;
+    const visualScale = 1.0 + (z / 64) * 0.35;
+
+    // 1. Draw Ground Shadow on Table Felt (separated and blurred when airborne)
     this.ctx.save();
-    this.ctx.translate(die.x, die.y);
-    this.ctx.rotate(die.rotation);
+    const shadowX = die.x + (3 + z * 0.25);
+    const shadowY = die.y + (4 + z * 0.65);
+    const shadowBlur = 10 + z * 0.75;
+    const shadowAlpha = Math.max(0.12, 0.45 - (z / 100) * 0.22);
+    const shadowScale = 1.0 + (z / 100) * 0.15;
 
-    // Die Drop Shadow
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-    this.ctx.shadowBlur = 10;
-    this.ctx.shadowOffsetX = 3;
-    this.ctx.shadowOffsetY = 4;
+    this.ctx.translate(shadowX, shadowY);
+    this.ctx.rotate(die.rotation);
+    this.ctx.shadowColor = `rgba(0, 0, 0, ${shadowAlpha * 0.8})`;
+    this.ctx.shadowBlur = shadowBlur;
+    this.ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha})`;
+    const sHalf = (size * shadowScale) / 2;
+    this.ctx.beginPath();
+    this.ctx.roundRect(-sHalf, -sHalf, size * shadowScale, size * shadowScale, 12 * shadowScale);
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // 2. Draw Die Body (at visual height and scale)
+    this.ctx.save();
+    this.ctx.translate(die.x, visualY);
+    this.ctx.scale(visualScale, visualScale);
+    this.ctx.rotate(die.rotation);
 
     // Die Body (Rounded Box)
     this.ctx.fillStyle = tier.color;
     this.ctx.beginPath();
     this.ctx.roundRect(-half, -half, size, size, 12);
     this.ctx.fill();
-
-    // Reset shadow for face details
-    this.ctx.shadowColor = 'transparent';
 
     // Subtle Radial Highlight / Gloss
     const gloss = this.ctx.createRadialGradient(-half * 0.3, -half * 0.3, 4, 0, 0, half * 1.2);

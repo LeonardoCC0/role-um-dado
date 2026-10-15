@@ -68,6 +68,15 @@ export const COMMON_UPGRADE_CONFIG = {
     maxLevel: 15,
     unit: 'G',
     icon: '🧲'
+  },
+  cursorArea: {
+    name: 'Área do Cursor',
+    desc: 'Expande o raio de alcance magnético em volta do mouse para rolar múltiplos dados de longe (+8px por nível).',
+    baseCost: 80,
+    costMult: 1.35,
+    maxLevel: 25,
+    unit: 'px',
+    icon: '⭕'
   }
 };
 
@@ -305,5 +314,23 @@ export class Formulas {
 
     const formatted = (num / Math.pow(10, i * 3)).toFixed(i === 0 ? 0 : 2);
     return `${formatted} ${suffixes[i]}`;
+  }
+
+  // Calculate dynamic mouse interaction aura radius
+  static getCursorRadius(state) {
+    let baseRadius = 38; // Initial baseline radius
+    const upgradeLvl = state.commonUpgrades?.cursorArea || 0;
+    baseRadius += upgradeLvl * 8; // +8px per common upgrade level
+
+    const tree = state.skillTree || {};
+    let multiplier = 1.0;
+    if (tree['tree_cursor_aura']) {
+      multiplier += tree['tree_cursor_aura'] * 0.25; // +25% per level in skill tree
+    }
+    if (tree['tree_gravitational_reach']) {
+      multiplier += tree['tree_gravitational_reach'] * 0.40; // +40% per level in skill tree
+    }
+
+    return baseRadius * multiplier;
   }
 }
