@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Roll A Dice — Roblox Edition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/main.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top HUD Bar -->
+    <header class="top-hud-bar">
+      <div class="hud-logo">
+        <span class="hud-logo-icon">🎲</span>
+        <span>ROLL A DICE</span>
+      </div>
+
+      <div class="hud-currencies">
+        <div class="currency-pill coins-pill" id="hud-coins" title="Moedas de Ouro ganhas ao rolar dados">
+          <span>💰</span> <span class="val">$0</span>
+        </div>
+        <div class="currency-pill stardust-pill" id="hud-stardust" title="Stardust cósmico usado na Árvore de Habilidades">
+          <span>✨</span> <span class="val">0</span>
+        </div>
+        <div class="currency-pill gems-pill" id="hud-gems" title="Gemas ganhas em conquistas e marcos">
+          <span>💎</span> <span class="val">0</span>
+        </div>
+        <div class="currency-pill rebirth-pill" id="hud-rebirth" title="Total de Renascimentos e Multiplicador Permanente">
+          <span>🔄</span> <span class="val">Rebirth 0 (1.0x)</span>
+        </div>
+        <div class="currency-pill darkmatter-pill" id="hud-darkmatter" style="display: none;" title="Matéria Escura para nós avançados">
+          <span>🌌</span> <span class="val">0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs Bar -->
+    <nav class="tab-nav-bar" id="tab-nav">
+      <button class="tab-btn active" data-tab="game">🎲 Mesa dos Dados</button>
+      <button class="tab-btn" data-tab="shop">🛒 Loja de Dados</button>
+      <button class="tab-btn" data-tab="upgrades">⚡ Upgrades</button>
+      <button class="tab-btn tab-tree" data-tab="tree">🌌 Árvore Cósmica</button>
+      <button class="tab-btn tab-rebirth" data-tab="rebirth">🔄 Rebirth</button>
+      <button class="tab-btn" data-tab="stats">🏆 Conquistas & Stats</button>
+      <button class="tab-btn" data-tab="settings">⚙️ Códigos & Opções</button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content-area" id="main-content">
+      <!-- 2D Canvas Viewport (Persists across tabs without reloading) -->
+      <div class="scene-3d-viewport" id="scene-container"></div>
+
+      <!-- Controls Overlay for 2D Table -->
+      <div class="table-hud-controls" id="table-controls">
+        <button class="main-roll-btn" id="btn-roll-all" title="Gira todos os dados na mesa">
+          <span>🎲</span>
+          <span>ROLAR TODOS</span>
+        </button>
+        <button class="auto-roll-toggle-btn" id="btn-auto-roll">
+          <span>⚙️</span>
+          <span id="auto-roll-status">Auto-Roll: DESLIGADO</span>
+        </button>
+      </div>
+
+      <!-- Tab View Overlays (Shop, Upgrades, Tree, Rebirth, Stats, Settings) -->
+      <div class="tab-view-overlay" id="tab-overlay" style="display: none;"></div>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
