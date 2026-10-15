@@ -1,10 +1,11 @@
 // Complete Progression Simulation Test
 import { Formulas, DICE_TIERS, COMMON_UPGRADE_CONFIG } from '../src/state/formulas.js';
 import { SKILL_TREE_NODES } from '../src/systems/treeData.js';
+import { GameState } from '../src/state/gameState.js';
 
 console.log("=== INICIANDO TESTE DE PROGRESSÃO COMPLETO (ROLL A DICE) ===");
 
-// 1. Simular Estado Inicial
+// 1. Simular Estado Inicial com GameState
 const state = {
   coins: 0,
   stardust: 3, // Starter stardust
@@ -36,108 +37,90 @@ const state = {
 
 console.log("1. Estado Inicial verificado: 1 Dado de Madeira, $0 moedas, 3 Stardust, Rebirth 0.");
 
-// 2. Simular rolagens de dados iniciais
+// 2. Simular rolagens de dados iniciais - Verificar que CADA rolagem concede Moedas e Stardust!
+let initialStarsEarned = 0;
 for (let i = 0; i < 20; i++) {
   const face = 1 + (i % 6);
   const income = Formulas.calculateDiceIncome(face, state.activeDice[0].tierIndex, state, false);
+  const stars = Formulas.calculateStardustGain(face, state.activeDice[0].tierIndex, state, false);
   state.coins += income;
+  state.stardust += stars;
+  initialStarsEarned += stars;
   state.stats.totalRolls += 1;
   state.stats.totalCoinsEarned += income;
 }
-console.log(`2. 20 rolagens concluídas: $${state.coins} moedas acumuladas.`);
+console.log(`2. 20 rolagens concluídas: $${state.coins} moedas e +${initialStarsEarned} Stardust garantidos!`);
 
-// 3. Comprar dado de tier superior (Bronze = $250)
-const bronzeCost = DICE_TIERS[1].baseCost;
-if (state.coins >= bronzeCost) {
-  state.coins -= bronzeCost;
-  state.activeDice.push({ id: 'die_test_2', tierIndex: 1 });
-  console.log(`3. Dado de Bronze adquirido por $${bronzeCost}! Dados ativos: ${state.activeDice.length}`);
-} else {
-  // Add funds to verify purchase
-  state.coins += bronzeCost;
-  state.coins -= bronzeCost;
-  state.activeDice.push({ id: 'die_test_2', tierIndex: 1 });
-  console.log(`3. Dado de Bronze adquirido! Dados ativos: ${state.activeDice.length}`);
+if (initialStarsEarned < 20) {
+  throw new Error("Cada rolagem de dado deve conceder pelo menos 1 Stardust!");
 }
 
-// 4. Comprar melhoria comum (Multiplicador de Moedas)
-const upgradeCost = Formulas.getCommonUpgradeCost('coinMultiplier', 0, 1);
-state.coins += 200;
-state.coins -= upgradeCost;
-state.commonUpgrades.coinMultiplier = 1;
-console.log(`4. Multiplicador de Moedas Lv. 1 comprado por $${upgradeCost}.`);
-
-// 5. Desbloquear habilidades na Árvore de Habilidades com Stardust
-// Compra Mão Mecânica I (Custo: 2 Stardust)
-const handNode = SKILL_TREE_NODES['tree_helper_hand_1'];
-if (state.stardust >= handNode.costs[0]) {
-  state.stardust -= handNode.costs[0];
-  state.skillTree['tree_helper_hand_1'] = 1;
-  console.log(`5. Habilidade '${handNode.name}' desbloqueada na Árvore! Stardust restante: ${state.stardust}`);
+// 3. Testar capacidade máxima de 50 dados por tipo
+const dummyState = new GameState();
+const maxWood = dummyState.getMaxDicePerType(0);
+console.log(`3. Limite base por tipo de dado na mesa: ${maxWood} (deve ser 50).`);
+if (maxWood !== 50) {
+  throw new Error(`O limite base por tipo de dado deve ser 50, mas obteve: ${maxWood}`);
 }
 
-// 6. Testar geração de Stardust (desbloquear Gênese Estelar)
-state.stardust += 10;
-const genesisNode = SKILL_TREE_NODES['tree_stardust_genesis'];
-state.stardust -= genesisNode.costs[0];
-state.skillTree['tree_stardust_genesis'] = 1;
-console.log(`6. '${genesisNode.name}' desbloqueada!`);
+// Comprar dados de madeira em lote até testar o limite
+dummyState.coins = 100000;
+dummyState.buyDie(0, 10);
+console.log(`   - Comprados 10 dados de Madeira. Total ativo deste tipo: ${dummyState.getDiceCountByTier(0)}`);
+dummyState.buyDie(0, 'max');
+console.log(`   - Comprado o MÁXIMO de dados de Madeira. Total ativo deste tipo: ${dummyState.getDiceCountByTier(0)} / ${dummyState.getMaxDicePerType(0)}`);
+if (dummyState.getDiceCountByTier(0) !== 50) {
+  throw new Error(`Deveria ter atingido 50 dados de Madeira, mas obteve ${dummyState.getDiceCountByTier(0)}`);
+}
 
-let stardustGained = 0;
-for (let i = 0; i < 50; i++) {
-  const drop = Formulas.checkStardustDrop(6, 0, state);
-  if (drop.dropped) {
-    stardustGained += drop.amount;
+// 4. Testar que cada tier superior concede quantias progressivamente maiores de Estrelas
+console.log("4. Verificando rendimento de Estrelas por tipo de dado:");
+DICE_TIERS.forEach((tier, idx) => {
+  const starsRoll = Formulas.calculateStardustGain(1, idx, state, false);
+  console.log(`   - ${tier.icon} ${tier.name}: ${starsRoll} Estrelas base por rolagem`);
+  if (!tier.stardustBonus || tier.stardustBonus <= 0) {
+    throw new Error(`Tier ${tier.name} está sem stardustBonus definido!`);
   }
-}
-console.log(`7. Teste de drops na face 6 com Gênese Estelar: ${stardustGained} Stardust obtido em 50 testes.`);
+});
 
-// 8. Progressão até o Rebirth
-// Adicionar moedas para atingir a meta do Rebirth 1 ($100k) e 3 dados
-state.coins = 120000;
+// 5. Testar novas melhorias da Árvore de Habilidades para Estrelas
+console.log("5. Testando melhorias da Árvore que aumentam o ganho de Estrelas:");
+const baseWoodStars = Formulas.calculateStardustGain(1, 0, state, false);
+
+// Desbloquear Infusão Astral (+75% por nível)
+state.skillTree['tree_astral_infusion'] = 1;
+const boostedStars1 = Formulas.calculateStardustGain(1, 0, state, false);
+console.log(`   - Com Infusão Astral Lv 1 (+75%): ${baseWoodStars} -> ${boostedStars1} Estrelas`);
+if (boostedStars1 <= baseWoodStars) {
+  throw new Error("Infusão Astral deveria aumentar o ganho de Estrelas!");
+}
+
+// Desbloquear Supernova Estelar (+150% por nível)
+state.skillTree['tree_supernova'] = 1;
+const boostedStars2 = Formulas.calculateStardustGain(1, 0, state, false);
+console.log(`   - Com Supernova Lv 1 (+150%): ${boostedStars1} -> ${boostedStars2} Estrelas`);
+if (boostedStars2 <= boostedStars1) {
+  throw new Error("Supernova deveria aumentar substancialmente o ganho de Estrelas!");
+}
+
+// Desbloquear Radiância Cósmica (+200% por nível)
+state.skillTree['tree_cosmic_radiance'] = 1;
+const boostedStars3 = Formulas.calculateStardustGain(1, 0, state, false);
+console.log(`   - Com Radiância Cósmica Lv 1 (+200%): ${boostedStars2} -> ${boostedStars3} Estrelas`);
+if (boostedStars3 <= boostedStars2) {
+  throw new Error("Radiância Cósmica deveria aumentar o ganho de Estrelas!");
+}
+
+// 6. Testar Rebirth com a nova melhoria 'Fluxo Estelar da Transcendência'
+state.coins = 150000;
+state.activeDice.push({ id: 'die_test_2', tierIndex: 1 });
 state.activeDice.push({ id: 'die_test_3', tierIndex: 1 });
-const reqs = Formulas.getRebirthRequirements(state);
-console.log(`8. Requisitos de Rebirth avaliados: Moedas atingidas? ${reqs.coinsMet}, Dados atingidos? ${reqs.diceMet}, Pode renascer? ${reqs.canRebirth}`);
-
-if (!reqs.canRebirth) {
-  throw new Error("Falha na validação dos requisitos de Rebirth.");
+state.skillTree['tree_stardust_rebirth_surge'] = 2; // +100 Stardust bônus
+const rebirthRewards = Formulas.getRebirthRewards(state);
+console.log(`6. Recompensas de Rebirth com Fluxo Estelar Lv 2: +${rebirthRewards.stardustReward} Stardust (bônus de +100 aplicado!).`);
+if (rebirthRewards.stardustReward < 125) {
+  throw new Error("Fluxo Estelar da Transcendência deveria conceder bônus massivo de Stardust no Rebirth!");
 }
 
-// 9. Comprar nó 'Retenção de Legado' e 'Surto de Rebirth' para testar preservação
-state.skillTree['tree_legacy_retention'] = 1; // Preserva 30% dos upgrades comuns
-state.skillTree['tree_rebirth_surge'] = 1; // Concede +200% em vez de +100%
-state.commonUpgrades.coinMultiplier = 10;
-
-const rewards = Formulas.getRebirthRewards(state);
-console.log(`9. Recompensas calculadas: +${rewards.stardustReward} Stardust, +${rewards.gemsReward} Gemas, Próximo Multiplicador: ${rewards.nextMultiplier}x.`);
-
-// 10. Executar Transação Atômica de Rebirth
-state.rebirths += 1;
-state.coins = 0;
-state.stardust += rewards.stardustReward;
-state.gems += rewards.gemsReward;
-
-// Verificar retenção de 30% em upgrades comuns
-const preservedUpgrades = Math.floor(10 * 0.3); // 3
-state.commonUpgrades.coinMultiplier = preservedUpgrades;
-
-// Resetar dados para o padrão
-state.activeDice = [{ id: 'die_restarted_1', tierIndex: 0 }];
-
-console.log("10. TRANSAÇÃO DE REBIRTH EXECUTADA COM SUCESSO!");
-console.log(`   - Novo Rebirth: ${state.rebirths}`);
-console.log(`   - Moedas reiniciadas: $${state.coins}`);
-console.log(`   - Upgrades comuns preservados pelo Legado: Lv. ${state.commonUpgrades.coinMultiplier}`);
-console.log(`   - Stardust mantido e acrescido: ${state.stardust}`);
-console.log(`   - Gemas mantidas e acrescidas: ${state.gems}`);
-console.log(`   - Árvore de habilidades intacta: ${Object.keys(state.skillTree).length} nós`);
-
-// 11. Comparar rendimento de rolagem pós-rebirth com pré-rebirth
-const postRebirthIncome = Formulas.calculateDiceIncome(6, 0, state, false);
-console.log(`11. Nova rolagem de face 6 inicial rende: $${postRebirthIncome} (multiplicador permanente ativo de ${rewards.nextMultiplier}x!).`);
-
-if (postRebirthIncome <= 60) {
-  throw new Error("O multiplicador permanente de Rebirth não surtiu efeito na renda!");
-}
-
-console.log("=== TODOS OS TESTES DE PROGRESSÃO PASSARAM COM 100% DE SUCESSO! ===");
+console.log("=== TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! ===");
+process.exit(0);

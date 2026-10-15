@@ -1,17 +1,17 @@
 // Centralized Game Calculations and Formulas
 
 export const DICE_TIERS = [
-  { id: 'wood', name: 'Dado de Madeira', multiplier: 1, baseCost: 0, color: '#b58863', pipColor: '#4a2e18', icon: '🪵' },
-  { id: 'bronze', name: 'Dado de Bronze', multiplier: 2.5, baseCost: 250, color: '#cd7f32', pipColor: '#3a200a', icon: '🥉' },
-  { id: 'iron', name: 'Dado de Ferro', multiplier: 6, baseCost: 1500, color: '#a19d94', pipColor: '#2b2a28', icon: '⚙️' },
-  { id: 'silver', name: 'Dado de Prata', multiplier: 15, baseCost: 8000, color: '#e0e6ed', pipColor: '#1e293b', icon: '🥈' },
-  { id: 'gold', name: 'Dado de Ouro', multiplier: 40, baseCost: 45000, color: '#fbbf24', pipColor: '#78350f', icon: '🥇' },
-  { id: 'diamond', name: 'Dado de Diamante', multiplier: 120, baseCost: 250000, color: '#38bdf8', pipColor: '#0369a1', icon: '💎' },
-  { id: 'emerald', name: 'Dado de Esmeralda', multiplier: 400, baseCost: 1500000, color: '#22c55e', pipColor: '#14532d', icon: '🟢' },
-  { id: 'ruby', name: 'Dado de Rubi', multiplier: 1500, baseCost: 10000000, color: '#ef4444', pipColor: '#7f1d1d', icon: '🔴' },
-  { id: 'obsidian', name: 'Dado de Obsidiana', multiplier: 5000, baseCost: 75000000, color: '#312e81', pipColor: '#c084fc', icon: '🟣' },
-  { id: 'stardust', name: 'Dado Estelar', multiplier: 20000, baseCost: 500000000, color: '#818cf8', pipColor: '#ffffff', icon: '✨', stardustBonus: 1 },
-  { id: 'cosmic', name: 'Dado Cósmico', multiplier: 100000, baseCost: 5000000000, color: '#1e1b4b', pipColor: '#f43f5e', icon: '🌌', darkMatterBonus: 1 },
+  { id: 'wood', name: 'Dado de Madeira', multiplier: 1, baseCost: 0, color: '#b58863', pipColor: '#4a2e18', icon: '🪵', stardustBonus: 1 },
+  { id: 'bronze', name: 'Dado de Bronze', multiplier: 2.5, baseCost: 250, color: '#cd7f32', pipColor: '#3a200a', icon: '🥉', stardustBonus: 2 },
+  { id: 'iron', name: 'Dado de Ferro', multiplier: 6, baseCost: 1500, color: '#a19d94', pipColor: '#2b2a28', icon: '⚙️', stardustBonus: 4 },
+  { id: 'silver', name: 'Dado de Prata', multiplier: 15, baseCost: 8000, color: '#e0e6ed', pipColor: '#1e293b', icon: '🥈', stardustBonus: 8 },
+  { id: 'gold', name: 'Dado de Ouro', multiplier: 40, baseCost: 45000, color: '#fbbf24', pipColor: '#78350f', icon: '🥇', stardustBonus: 18 },
+  { id: 'diamond', name: 'Dado de Diamante', multiplier: 120, baseCost: 250000, color: '#38bdf8', pipColor: '#0369a1', icon: '💎', stardustBonus: 40 },
+  { id: 'emerald', name: 'Dado de Esmeralda', multiplier: 400, baseCost: 1500000, color: '#22c55e', pipColor: '#14532d', icon: '🟢', stardustBonus: 90 },
+  { id: 'ruby', name: 'Dado de Rubi', multiplier: 1500, baseCost: 10000000, color: '#ef4444', pipColor: '#7f1d1d', icon: '🔴', stardustBonus: 200 },
+  { id: 'obsidian', name: 'Dado de Obsidiana', multiplier: 5000, baseCost: 75000000, color: '#312e81', pipColor: '#c084fc', icon: '🟣', stardustBonus: 500 },
+  { id: 'stardust', name: 'Dado Estelar', multiplier: 20000, baseCost: 500000000, color: '#818cf8', pipColor: '#ffffff', icon: '✨', stardustBonus: 1500 },
+  { id: 'cosmic', name: 'Dado Cósmico', multiplier: 100000, baseCost: 5000000000, color: '#1e1b4b', pipColor: '#f43f5e', icon: '🌌', stardustBonus: 5000, darkMatterBonus: 1 },
 ];
 
 export const COMMON_UPGRADE_CONFIG = {
@@ -107,6 +107,11 @@ export class Formulas {
       base *= (2 + tree['tree_lucky_six']); // Lv 1 = 3x, Lv 2 = 4x
     }
 
+    // Golden Rain: Even faces (2, 4, 6) grant +100% coins per level
+    if (face % 2 === 0 && tree['tree_golden_rain']) {
+      base *= (1 + tree['tree_golden_rain'] * 1.0);
+    }
+
     // Dice Synergy: +15% per additional active die
     const activeDiceCount = state.activeDice?.length || 1;
     if (tree['tree_dice_synergy'] && activeDiceCount > 1) {
@@ -116,6 +121,12 @@ export class Formulas {
     // Trickle Down: Higher tier dice boost lower tiers
     if (tree['tree_trickle_down'] && dieTierIndex > 0) {
       base *= (1 + dieTierIndex * 0.25 * tree['tree_trickle_down']);
+    }
+
+    // Transcendental Fortune: +50% per unique active die type
+    if (tree['tree_transcendental_fortune']) {
+      const uniqueTypes = new Set((state.activeDice || []).map(d => d.tierIndex)).size;
+      base *= (1 + uniqueTypes * 0.5 * tree['tree_transcendental_fortune']);
     }
 
     // Stellar Resonance: +2% per 10 Stardust held
@@ -128,6 +139,21 @@ export class Formulas {
     if (tree['tree_exponential_fortune']) {
       const totalOwned = state.inventory?.length || activeDiceCount;
       base *= (1 + totalOwned * 0.1 * tree['tree_exponential_fortune']);
+    }
+
+    // Dark Matter Infusion
+    if (tree['tree_dark_matter_infusion']) {
+      base *= (1 + tree['tree_dark_matter_infusion'] * 5.0);
+    }
+
+    // Galaxy Core: 5x global coins
+    if (tree['tree_galaxy_core']) {
+      base *= 5;
+    }
+
+    // Singularity: 3x all resources
+    if (tree['tree_singularity']) {
+      base *= 3;
     }
 
     // Rebirth Multiplier
@@ -149,42 +175,85 @@ export class Formulas {
     return Math.round(base);
   }
 
-  // Calculate Stardust chance and amount
-  static checkStardustDrop(face, dieTierIndex, state) {
+  // Calculate Stardust amount granted by a die landing on a given face
+  static calculateStardustGain(face, dieTierIndex, state, isCrit = false) {
     const tier = DICE_TIERS[dieTierIndex] || DICE_TIERS[0];
+    let baseStars = tier.stardustBonus || 1;
+
+    // Face 6 bonus: +50% stars
+    if (face === 6) {
+      baseStars = Math.round(baseStars * 1.5);
+    }
+
     const tree = state.skillTree || {};
 
-    // Stardust Die always drops 1 Stardust
-    if (tier.stardustBonus) {
-      return { dropped: true, amount: tier.stardustBonus };
+    // Golden Rain: +1 Stardust per level on even faces (2, 4, 6)
+    if (face % 2 === 0 && tree['tree_golden_rain']) {
+      baseStars += tree['tree_golden_rain'];
     }
 
-    // Stardust Genesis must be unlocked to drop Stardust from normal dice
-    if (!tree['tree_stardust_genesis']) {
-      return { dropped: false, amount: 0 };
+    // Star Overflow: triples (or more) stars on crits and 6s
+    if (isCrit || face === 6) {
+      if (tree['tree_star_overflow']) {
+        baseStars *= (1 + tree['tree_star_overflow'] * 2.0); // Lv 1 = 3x, Lv 2 = 5x, Lv 3 = 7x
+      } else if (isCrit) {
+        baseStars *= 2;
+      }
     }
 
-    // Only roll of 6 drops Stardust
-    if (face !== 6) {
-      return { dropped: false, amount: 0 };
+    // Stardust Genesis: +50% per level to all stars
+    if (tree['tree_stardust_genesis']) {
+      baseStars *= (1 + tree['tree_stardust_genesis'] * 0.5);
     }
 
-    let chance = 0.05 * tree['tree_stardust_genesis']; // 5% per level
-
+    // Stardust Harvester: +100% per level
     if (tree['tree_stardust_harvester']) {
-      chance += 0.07 * tree['tree_stardust_harvester']; // +7%
+      baseStars *= (1 + tree['tree_stardust_harvester'] * 1.0);
     }
 
+    // Astral Infusion: +75% per level
+    if (tree['tree_astral_infusion']) {
+      baseStars *= (1 + tree['tree_astral_infusion'] * 0.75);
+    }
+
+    // Stellar Swarm: +5% per active die on the table
+    const activeDiceCount = state.activeDice?.length || 1;
+    if (tree['tree_stellar_swarm']) {
+      baseStars *= (1 + activeDiceCount * 0.05 * tree['tree_stellar_swarm']);
+    }
+
+    // Supernova: +150% per level
+    if (tree['tree_supernova']) {
+      baseStars *= (1 + tree['tree_supernova'] * 1.5);
+    }
+
+    // Cosmic Radiance: +200% per level
+    if (tree['tree_cosmic_radiance']) {
+      baseStars *= (1 + tree['tree_cosmic_radiance'] * 2.0);
+    }
+
+    // Galaxy Core: 5x stars
+    if (tree['tree_galaxy_core']) {
+      baseStars *= 5;
+    }
+
+    // Eternal Wisdom (after rebirth): 2x stars
     if (tree['tree_eternal_wisdom'] && state.rebirths > 0) {
-      chance *= 1.5;
+      baseStars *= 2.0;
     }
 
-    if (Math.random() < chance) {
-      const amount = 1 + (tree['tree_stardust_harvester'] || 0);
-      return { dropped: true, amount };
+    // Singularity: 3x all resources
+    if (tree['tree_singularity']) {
+      baseStars *= 3;
     }
 
-    return { dropped: false, amount: 0 };
+    return Math.max(1, Math.round(baseStars));
+  }
+
+  // Calculate Stardust chance and amount (guaranteed drop for all dice)
+  static checkStardustDrop(face, dieTierIndex, state, isCrit = false) {
+    const amount = Formulas.calculateStardustGain(face, dieTierIndex, state, isCrit);
+    return { dropped: true, amount };
   }
 
   // Check Dark Matter drop
@@ -256,7 +325,8 @@ export class Formulas {
     const surge = tree['tree_rebirth_surge'] ? 2.0 : 1.0;
     const nextMultiplier = 1 + (nextRebirth * surge);
     const currentMultiplier = 1 + ((state.rebirths || 0) * surge);
-    const stardustReward = 15 + nextRebirth * 10;
+    const rebirthSurgeBonus = (tree['tree_stardust_rebirth_surge'] || 0) * 50;
+    const stardustReward = 15 + nextRebirth * 10 + rebirthSurgeBonus;
     const gemsReward = 5 + nextRebirth * 2;
 
     return {

@@ -230,8 +230,8 @@ export class DiceManager {
     this.gameState.addCoins(income);
     this.gameState.stats.totalRolls += 1;
 
-    // Check Stardust drop
-    const stardustDrop = Formulas.checkStardustDrop(face, die.tierIndex, this.gameState);
+    // Check Stardust drop (guaranteed on all dice)
+    const stardustDrop = Formulas.checkStardustDrop(face, die.tierIndex, this.gameState, isCrit);
     if (stardustDrop.dropped) {
       this.gameState.addStardust(stardustDrop.amount);
     }

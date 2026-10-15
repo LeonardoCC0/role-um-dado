@@ -89,6 +89,20 @@ export const SKILL_TREE_NODES = {
     desc: 'Adiciona a 3ª Mão Mecânica permanente à mesa de jogo.',
     effectText: (lvl) => lvl > 0 ? '+3 Mãos Mecânicas ativas' : 'Desbloqueia a 3ª Mão Mecânica'
   },
+  tree_dice_overclock: {
+    id: 'tree_dice_overclock',
+    name: 'Overclock das Mãos',
+    icon: '⚡',
+    branch: 'automation',
+    x: 120,
+    y: -330,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [15, 35, 80],
+    reqs: ['tree_helper_hand_3'],
+    desc: 'Instala servomotores aprimorados: aumenta a velocidade e frequência de empurrão das mãos mecânicas em +50% por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 50}% frequência nas mãos` : '+50% frequência nas mãos'
+  },
   tree_quantum_hands: {
     id: 'tree_quantum_hands',
     name: 'Mãos Quânticas',
@@ -146,6 +160,20 @@ export const SKILL_TREE_NODES = {
     reqs: ['tree_golden_faces'],
     desc: 'Rolagens que resultam na face 6 concedem multiplicador extra massivo de moedas.',
     effectText: (lvl) => lvl > 0 ? `Face 6 concede ${2 + lvl}x moedas` : 'Face 6 concede 3x moedas'
+  },
+  tree_golden_rain: {
+    id: 'tree_golden_rain',
+    name: 'Chuva Dourada',
+    icon: '🌧️',
+    branch: 'income',
+    x: 370,
+    y: -130,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [15, 35, 80],
+    reqs: ['tree_lucky_six'],
+    desc: 'Faces pares (2, 4, 6) concedem +100% de moedas e +1 Stardust adicional por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 100}% moedas e +${lvl} Stardust em faces pares` : '+100% moedas e +1 Stardust em pares'
   },
   tree_dice_synergy: {
     id: 'tree_dice_synergy',
@@ -217,6 +245,20 @@ export const SKILL_TREE_NODES = {
     desc: 'Multiplica todos os ganhos de moedas por +10% para cada dado já adquirido na sua coleção.',
     effectText: (lvl) => lvl > 0 ? 'Rendimento multiplicado por dados obtidos' : '+10% renda por dado na coleção'
   },
+  tree_transcendental_fortune: {
+    id: 'tree_transcendental_fortune',
+    name: 'Fortuna Transcendental',
+    icon: '🪐',
+    branch: 'income',
+    x: 790,
+    y: -20,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [50, 120, 280],
+    reqs: ['tree_exponential_fortune'],
+    desc: 'Multiplica a renda de todos os dados em +50% por nível para cada tipo diferente de dado ativo na mesa.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 50}% renda por tipo único de dado` : '+50% renda por tipo único'
+  },
 
   // === BRANCH 3: STARDUST & CÓSMICO ===
   tree_stardust_genesis: {
@@ -230,8 +272,22 @@ export const SKILL_TREE_NODES = {
     costResource: 'stardust',
     costs: [5, 12, 25],
     reqs: ['tree_origin'],
-    desc: 'Desbloqueia a capacidade dos dados normais de gerarem Stardust ✨ ao caírem na face 6.',
-    effectText: (lvl) => lvl > 0 ? `${lvl * 5}% chance de Stardust na face 6` : '5% chance de Stardust na face 6'
+    desc: 'Amplifica a emanação cósmica de todos os dados: concede +50% de Stardust gerado por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 50}% Stardust ganho` : '+50% Stardust ganho'
+  },
+  tree_astral_infusion: {
+    id: 'tree_astral_infusion',
+    name: 'Infusão Astral',
+    icon: '🌟',
+    branch: 'stardust',
+    x: 120,
+    y: 240,
+    maxLevel: 5,
+    costResource: 'stardust',
+    costs: [10, 25, 60, 150, 350],
+    reqs: ['tree_stardust_genesis'],
+    desc: 'Canaliza a energia das constelações: aumenta todo o ganho de Stardust ✨ em +75% por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 75}% Stardust global` : '+75% Stardust global'
   },
   tree_shooting_stars: {
     id: 'tree_shooting_stars',
@@ -239,7 +295,7 @@ export const SKILL_TREE_NODES = {
     icon: '🌠',
     branch: 'stardust',
     x: 230,
-    y: 170,
+    y: 160,
     maxLevel: 1,
     costResource: 'stardust',
     costs: [15],
@@ -247,19 +303,47 @@ export const SKILL_TREE_NODES = {
     desc: 'Estrelas cadentes caem na mesa periodicamente. Clique nelas para coletar Stardust imediato.',
     effectText: (lvl) => lvl > 0 ? 'Estrelas cadentes ativas na mesa' : 'Gera estrelas cadentes clicáveis'
   },
+  tree_star_overflow: {
+    id: 'tree_star_overflow',
+    name: 'Transbordamento Estelar',
+    icon: '💫',
+    branch: 'stardust',
+    x: 230,
+    y: 70,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [15, 35, 80],
+    reqs: ['tree_shooting_stars'],
+    desc: 'Rolagens de face 6 e rolagens críticas transbordam energia e concedem 3x Stardust por nível.',
+    effectText: (lvl) => lvl > 0 ? `${1 + lvl * 2}x Stardust em crits e face 6` : '3x Stardust em crits e 6'
+  },
   tree_stardust_harvester: {
     id: 'tree_stardust_harvester',
     name: 'Colheitadeira Estelar',
     icon: '🔭',
     branch: 'stardust',
     x: 230,
-    y: 270,
+    y: 260,
     maxLevel: 2,
     costResource: 'stardust',
     costs: [30, 65],
     reqs: ['tree_stardust_genesis'],
-    desc: 'Aumenta a taxa de drop de Stardust em +7% e concede +1 Stardust a cada drop.',
-    effectText: (lvl) => lvl > 0 ? `+${lvl * 7}% chance e +${lvl} Stardust` : '+7% chance e +1 Stardust'
+    desc: 'Melhora os receptores astrais da mesa, dobrando (+100% por nível) todo o Stardust gerado.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 100}% Stardust ganho` : '+100% Stardust ganho'
+  },
+  tree_stellar_swarm: {
+    id: 'tree_stellar_swarm',
+    name: 'Enxame Estelar',
+    icon: '✨',
+    branch: 'stardust',
+    x: 350,
+    y: 130,
+    maxLevel: 4,
+    costResource: 'stardust',
+    costs: [25, 60, 140, 300],
+    reqs: ['tree_shooting_stars', 'tree_stardust_harvester'],
+    desc: 'A energia combinada dos dados amplia a atração estelar: concede +5% de Stardust extra por cada dado ativo na mesa por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 5}% Stardust por dado na mesa` : '+5% Stardust por dado na mesa'
   },
   tree_stellar_resonance: {
     id: 'tree_stellar_resonance',
@@ -267,13 +351,41 @@ export const SKILL_TREE_NODES = {
     icon: '🔮',
     branch: 'stardust',
     x: 350,
-    y: 220,
+    y: 240,
     maxLevel: 5,
     costResource: 'stardust',
     costs: [45, 90, 160, 280, 450],
     reqs: ['tree_shooting_stars', 'tree_stardust_harvester'],
     desc: 'A energia do Stardust guardado acelera a economia: +2% de renda para cada 10 Stardust mantidos.',
     effectText: (lvl) => lvl > 0 ? `+${lvl * 2}% renda a cada 10 Stardust` : '+2% renda a cada 10 Stardust'
+  },
+  tree_supernova: {
+    id: 'tree_supernova',
+    name: 'Supernova Estelar',
+    icon: '💥',
+    branch: 'stardust',
+    x: 470,
+    y: 180,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [50, 120, 300],
+    reqs: ['tree_stellar_swarm', 'tree_stellar_resonance'],
+    desc: 'Desencadeia reações astrais massivas em cadeia: concede +150% de Stardust global por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 150}% Stardust global` : '+150% Stardust global'
+  },
+  tree_cosmic_radiance: {
+    id: 'tree_cosmic_radiance',
+    name: 'Radiância Cósmica',
+    icon: '☀️',
+    branch: 'stardust',
+    x: 580,
+    y: 180,
+    maxLevel: 2,
+    costResource: 'stardust',
+    costs: [150, 400],
+    reqs: ['tree_supernova'],
+    desc: 'Eleva a emissão astral ao ápice: concede +200% de Stardust global por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 200}% Stardust global` : '+200% Stardust global'
   },
   tree_cosmic_catalyst: {
     id: 'tree_cosmic_catalyst',
@@ -316,6 +428,20 @@ export const SKILL_TREE_NODES = {
     reqs: ['tree_dark_matter_infusion'],
     desc: 'Cria uma singularidade no centro do tabuleiro, triplicando todos os recursos obtidos para sempre.',
     effectText: (lvl) => lvl > 0 ? '3x em todos os recursos!' : '3x todos os ganhos (Moedas, Stardust)'
+  },
+  tree_galaxy_core: {
+    id: 'tree_galaxy_core',
+    name: 'Núcleo Galáctico',
+    icon: '🌌',
+    branch: 'stardust',
+    x: 700,
+    y: 180,
+    maxLevel: 1,
+    costResource: 'darkMatter',
+    costs: [15],
+    reqs: ['tree_cosmic_radiance', 'tree_singularity'],
+    desc: 'O vórtice no centro da galáxia acelera todo o universo: quintuplica (5x) para sempre todo o ganho de Moedas e Stardust!',
+    effectText: (lvl) => lvl > 0 ? '5x Moedas e 5x Stardust para sempre!' : '5x Moedas e 5x Stardust'
   },
 
   // === BRANCH 4: MAESTRIA DE DADOS & FÍSICA ===
@@ -388,6 +514,20 @@ export const SKILL_TREE_NODES = {
     reqs: ['tree_expanded_tray'],
     desc: 'Aumenta o limite máximo de dados ativos simultaneamente na mesa em +2.',
     effectText: (lvl) => lvl > 0 ? '+2 dados ativos máximos' : '+2 dados ativos máximos'
+  },
+  tree_colossal_table: {
+    id: 'tree_colossal_table',
+    name: 'Mesa Titânica',
+    icon: '🏛️',
+    branch: 'physics',
+    x: -360,
+    y: -100,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [25, 60, 150],
+    reqs: ['tree_extra_slot_1'],
+    desc: 'Amplia a robustez do tabuleiro: aumenta o limite de dados de cada tipo na mesa em +25 por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 25} limite por tipo de dado` : '+25 limite por tipo de dado'
   },
   tree_heavy_weight: {
     id: 'tree_heavy_weight',
@@ -489,17 +629,31 @@ export const SKILL_TREE_NODES = {
     desc: 'Comece imediatamente cada novo ciclo de Rebirth com $10.000 moedas e 2 Dados de Bronze ativos.',
     effectText: (lvl) => lvl > 0 ? 'Início acelerado com $10.000 e 2 Bronze' : 'Comece com $10k e 2 Bronze'
   },
+  tree_stardust_rebirth_surge: {
+    id: 'tree_stardust_rebirth_surge',
+    name: 'Fluxo Estelar da Transcendência',
+    icon: '🌠',
+    branch: 'rebirth',
+    x: -80,
+    y: 410,
+    maxLevel: 3,
+    costResource: 'stardust',
+    costs: [30, 75, 180],
+    reqs: ['tree_rebirth_surge'],
+    desc: 'O Rebirth reverbera energia estelar: concede +50 Stardust bônus por Rebirth realizado por nível.',
+    effectText: (lvl) => lvl > 0 ? `+${lvl * 50} Stardust no Rebirth` : '+50 Stardust no Rebirth'
+  },
   tree_eternal_wisdom: {
     id: 'tree_eternal_wisdom',
     name: 'Sabedoria Eterna',
     icon: '📜',
     branch: 'rebirth',
     x: -160,
-    y: 470,
+    y: 490,
     maxLevel: 1,
     costResource: 'stardust',
     costs: [200],
-    reqs: ['tree_golden_start'],
+    reqs: ['tree_golden_start', 'tree_stardust_rebirth_surge'],
     desc: 'Aumenta permanentemente a chance de Stardust em +50% e o ganho de Gemas em +25% após qualquer Rebirth.',
     effectText: (lvl) => lvl > 0 ? '+50% Stardust e +25% Gemas permanentes' : '+50% Stardust e +25% Gemas'
   }

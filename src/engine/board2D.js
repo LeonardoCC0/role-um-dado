@@ -240,6 +240,16 @@ export class Board2D {
     sounds.playStardust();
   }
 
+  updateDieSize() {
+    const count = (this.gameState.activeDice || []).length;
+    if (count <= 10) this.dieSize = 62;
+    else if (count <= 25) this.dieSize = 50;
+    else if (count <= 50) this.dieSize = 42;
+    else if (count <= 100) this.dieSize = 34;
+    else if (count <= 200) this.dieSize = 28;
+    else this.dieSize = 22;
+  }
+
   // Synchronize active dice with gameState
   syncWithState() {
     const activeList = this.gameState.activeDice || [];
@@ -248,13 +258,15 @@ export class Board2D {
     // Remove old dice
     this.dice = this.dice.filter(d => activeIds.has(d.id));
 
+    this.updateDieSize();
+
     // Add or update dice
     activeList.forEach((activeDie, index) => {
       let existing = this.dice.find(d => d.id === activeDie.id);
       if (!existing) {
-        const spreadAngle = (index / Math.max(1, activeList.length)) * Math.PI * 2;
-        const rx = this.arena.x + this.arena.width / 2 + Math.cos(spreadAngle) * (this.arena.width * 0.25);
-        const ry = this.arena.y + this.arena.height / 2 + Math.sin(spreadAngle) * (this.arena.height * 0.25);
+        const padding = this.dieSize * 1.2;
+        const rx = this.arena.x + padding + Math.random() * (this.arena.width - padding * 2);
+        const ry = this.arena.y + padding + Math.random() * (this.arena.height - padding * 2);
 
         this.dice.push({
           id: activeDie.id,
@@ -390,7 +402,8 @@ export class Board2D {
         const dist = Math.hypot(dx, dy);
 
         hand.angle = Math.atan2(dy, dx);
-        const handSpeed = 260 + (freqLvl * 15);
+        const overclockLvl = this.gameState.skillTree['tree_dice_overclock'] || 0;
+        const handSpeed = (260 + (freqLvl * 15)) * (1 + overclockLvl * 0.5);
 
         if (dist > 15) {
           hand.vx = (dx / dist) * handSpeed;
@@ -543,39 +556,55 @@ export class Board2D {
       const minY = this.arena.y + half;
       const maxY = this.arena.y + this.arena.height - half;
 
+      const now = performance.now();
       if (d.x < minX) {
         d.x = minX;
         d.vx = -d.vx * wallRestitution;
         d.vRot += (Math.random() - 0.5) * 4;
-        sounds.playDiceRattle();
+        if (now - this.lastRattleTime > 80) {
+          this.lastRattleTime = now;
+          sounds.playDiceRattle();
+        }
       } else if (d.x > maxX) {
         d.x = maxX;
         d.vx = -d.vx * wallRestitution;
         d.vRot += (Math.random() - 0.5) * 4;
-        sounds.playDiceRattle();
+        if (now - this.lastRattleTime > 80) {
+          this.lastRattleTime = now;
+          sounds.playDiceRattle();
+        }
       }
 
       if (d.y < minY) {
         d.y = minY;
         d.vy = -d.vy * wallRestitution;
         d.vRot += (Math.random() - 0.5) * 4;
-        sounds.playDiceRattle();
+        if (now - this.lastRattleTime > 80) {
+          this.lastRattleTime = now;
+          sounds.playDiceRattle();
+        }
       } else if (d.y > maxY) {
         d.y = maxY;
         d.vy = -d.vy * wallRestitution;
         d.vRot += (Math.random() - 0.5) * 4;
-        sounds.playDiceRattle();
+        if (now - this.lastRattleTime > 80) {
+          this.lastRattleTime = now;
+          sounds.playDiceRattle();
+        }
       }
 
-      // Dice-to-Dice Elastic Collision
+      // Dice-to-Dice Elastic Collision with fast spatial rejection
+      const minDist = this.dieSize * 0.95;
       for (let j = i + 1; j < this.dice.length; j++) {
         const d2 = this.dice[j];
         const cdx = d2.x - d.x;
+        if (cdx > minDist || cdx < -minDist) continue;
         const cdy = d2.y - d.y;
-        const cdist = Math.hypot(cdx, cdy);
-        const minDist = this.dieSize * 0.95;
+        if (cdy > minDist || cdy < -minDist) continue;
 
-        if (cdist < minDist && cdist > 0.01) {
+        const cdistSq = cdx * cdx + cdy * cdy;
+        if (cdistSq < minDist * minDist && cdistSq > 0.001) {
+          const cdist = Math.sqrt(cdistSq);
           // Push apart
           const overlap = minDist - cdist;
           const nx = cdx / cdist;
@@ -600,7 +629,10 @@ export class Board2D {
           d.vRot += (Math.random() - 0.5) * 3;
           d2.vRot += (Math.random() - 0.5) * 3;
 
-          sounds.playDiceRattle();
+          if (now - this.lastRattleTime > 90) {
+            this.lastRattleTime = now;
+            sounds.playDiceRattle();
+          }
         }
       }
     }
@@ -617,6 +649,9 @@ export class Board2D {
     }
 
     // 5. Update Floating Texts
+    if (this.floatingTexts.length > 50) {
+      this.floatingTexts.splice(0, this.floatingTexts.length - 50);
+    }
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
       ft.y += ft.vy * dt;
@@ -658,19 +693,15 @@ export class Board2D {
     this.gameState.addCoins(income);
     this.gameState.stats.totalRolls += 1;
 
-    // Check Stardust drop
-    const stardustDrop = Formulas.checkStardustDrop(face, die.tierIndex, this.gameState);
-    if (stardustDrop.dropped) {
-      this.gameState.addStardust(stardustDrop.amount);
-      this.spawnFloatingText(die.x, die.y - 25, `✨ +${stardustDrop.amount} STARDUST!`, '#60a5fa', 1.15);
-      this.spawnSparks(die.x, die.y, 12, '#60a5fa');
-    }
+    // Guaranteed Stardust from EVERY die roll based on face & tier & skills!
+    const stardustAmount = Formulas.calculateStardustGain(face, die.tierIndex, this.gameState, isCrit);
+    this.gameState.addStardust(stardustAmount);
 
     // Check Dark Matter drop
     const darkMatterDrop = Formulas.checkDarkMatterDrop(face, die.tierIndex, this.gameState, isCrit);
     if (darkMatterDrop.dropped) {
       this.gameState.addDarkMatter(darkMatterDrop.amount);
-      this.spawnFloatingText(die.x, die.y - 45, `🌌 +${darkMatterDrop.amount} MATÉRIA ESCURA!`, '#c084fc', 1.25);
+      this.spawnFloatingText(die.x, die.y - 25, `🌌 +${darkMatterDrop.amount} MATÉRIA ESCURA!`, '#c084fc', 1.25);
       this.spawnSparks(die.x, die.y, 16, '#c084fc');
     }
 
@@ -678,10 +709,10 @@ export class Board2D {
     sounds.playDiceLand(face, isCrit);
     sounds.playCoin();
 
-    // Floating text indicator
+    // Floating text indicator showing coins and Stardust together
     const prefix = isCrit ? '⚡ CRIT! ' : '';
     const color = isCrit ? '#fbbf24' : '#4ade80';
-    this.spawnFloatingText(die.x, die.y, `${prefix}+$${Formulas.formatNumber(income)} [${face}]`, color, isCrit ? 1.3 : 1.0);
+    this.spawnFloatingText(die.x, die.y, `${prefix}+$${Formulas.formatNumber(income)} [${face}] ✨+${stardustAmount}`, color, isCrit ? 1.3 : 1.0);
     this.spawnSparks(die.x, die.y, isCrit ? 14 : 6, color);
   }
 

@@ -139,12 +139,29 @@ export class GameState {
     return true;
   }
 
-  // Maximum allowed active dice
-  getMaxActiveDice() {
-    let max = 5; // Base limit
-    if (this.skillTree['tree_extra_slot_1']) max += 2;
-    if (this.skillTree['tree_extra_slot_2']) max += 3;
+  // Maximum allowed active dice OF EACH TYPE on the table (Base: 50 each type)
+  getMaxDicePerType(tierIndex = 0) {
+    let max = 50;
+    if (this.skillTree['tree_colossal_table']) {
+      max += this.skillTree['tree_colossal_table'] * 25; // 75, 100, 125 per type
+    }
     return max;
+  }
+
+  // Count active dice of a specific tier
+  getDiceCountByTier(tierIndex) {
+    let count = 0;
+    for (let i = 0; i < this.activeDice.length; i++) {
+      if (this.activeDice[i].tierIndex === tierIndex) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  // Maximum allowed total active dice
+  getMaxActiveDice() {
+    return DICE_TIERS.length * this.getMaxDicePerType(0);
   }
 
   // Buy common upgrade
@@ -206,21 +223,41 @@ export class GameState {
     return { success: true };
   }
 
-  // Buy a new die
-  buyDie(tierIndex) {
+  // Buy dice of a specific tier (supports 1, count, or 'max')
+  buyDie(tierIndex, count = 1) {
     const tier = DICE_TIERS[tierIndex];
     if (!tier) return false;
 
-    const maxDice = this.getMaxActiveDice();
-    if (this.activeDice.length >= maxDice) return false;
+    const currentCount = this.getDiceCountByTier(tierIndex);
+    const maxForTier = this.getMaxDicePerType(tierIndex);
+    const availableSlots = maxForTier - currentCount;
+    if (availableSlots <= 0) return false;
 
-    const cost = tier.baseCost;
-    if (!this.spendResource('coins', cost)) return false;
+    let targetCount = count;
+    if (count === 'max') {
+      if (tier.baseCost === 0) {
+        targetCount = availableSlots;
+      } else {
+        const affordCount = Math.floor(this.coins / tier.baseCost);
+        targetCount = Math.min(availableSlots, affordCount);
+      }
+    } else {
+      targetCount = Math.min(availableSlots, Number(count) || 1);
+    }
 
-    this.activeDice.push({
-      id: 'die_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      tierIndex
-    });
+    if (targetCount <= 0) return false;
+
+    const totalCost = tier.baseCost * targetCount;
+    if (!this.spendResource('coins', totalCost)) return false;
+
+    const timestamp = Date.now();
+    for (let i = 0; i < targetCount; i++) {
+      this.activeDice.push({
+        id: 'die_' + timestamp + '_' + i + '_' + Math.floor(Math.random() * 10000),
+        tierIndex
+      });
+    }
+
     if (!this.inventory.includes(tierIndex)) {
       this.inventory.push(tierIndex);
     }
@@ -231,7 +268,30 @@ export class GameState {
     return true;
   }
 
-  // Remove an active die
+  // Remove active dice of a specific tier
+  removeDieByTier(tierIndex, count = 1) {
+    if (this.activeDice.length <= 1) return false; // Must keep at least 1 die
+
+    let removed = 0;
+    for (let i = this.activeDice.length - 1; i >= 0; i--) {
+      if (this.activeDice[i].tierIndex === tierIndex) {
+        this.activeDice.splice(i, 1);
+        removed++;
+        if (this.activeDice.length <= 1) break;
+        if (count !== 'all' && removed >= count) break;
+      }
+    }
+
+    if (removed > 0) {
+      sounds.playClick();
+      this.notify();
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  // Remove an active die by index
   removeDie(index) {
     if (this.activeDice.length <= 1) return false; // Must keep at least 1 die
     if (index >= 0 && index < this.activeDice.length) {
@@ -337,6 +397,7 @@ export class GameState {
   // Persistence
   save() {
     try {
+      if (typeof localStorage === 'undefined') return;
       const data = {
         coins: this.coins,
         stardust: this.stardust,
@@ -360,6 +421,7 @@ export class GameState {
 
   load() {
     try {
+      if (typeof localStorage === 'undefined') return;
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw);
