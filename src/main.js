@@ -18,7 +18,6 @@ class RollADiceGame {
     this.currentUIInstance = null;
     this.lastTime = performance.now();
 
-    this.autoRollTimer = 0;
     this.kineticPulseTimer = 0;
 
     this.initDOM();
@@ -32,10 +31,6 @@ class RollADiceGame {
   initDOM() {
     this.sceneContainer = document.getElementById('scene-container');
     this.tabOverlay = document.getElementById('tab-overlay');
-    this.tableControls = document.getElementById('table-controls');
-    this.btnRollAll = document.getElementById('btn-roll-all');
-    this.btnAutoRoll = document.getElementById('btn-auto-roll');
-    this.autoRollStatus = document.getElementById('auto-roll-status');
 
     // HUD Elements
     this.hudCoins = document.getElementById('hud-coins');
@@ -66,7 +61,10 @@ class RollADiceGame {
     const rewards = Formulas.getRebirthRewards(gameState);
 
     this.hudCoins.querySelector('.val').textContent = `$${Formulas.formatNumber(gameState.coins)}`;
-    this.hudStardust.querySelector('.val').textContent = `${gameState.stardust.toLocaleString('pt-BR')}`;
+    const stardustDisplay = gameState.stardust < 10
+      ? (gameState.stardust % 1 === 0 ? gameState.stardust.toString() : gameState.stardust.toFixed(2))
+      : Math.floor(gameState.stardust).toLocaleString('pt-BR');
+    this.hudStardust.querySelector('.val').textContent = `${stardustDisplay}`;
     this.hudGems.querySelector('.val').textContent = `${gameState.gems.toLocaleString('pt-BR')}`;
     this.hudRebirth.querySelector('.val').textContent = `Rebirth ${gameState.rebirths} (${rewards.currentMultiplier.toFixed(1)}x)`;
 
@@ -101,7 +99,6 @@ class RollADiceGame {
 
     if (tab === 'game') {
       this.tabOverlay.style.display = 'none';
-      this.tableControls.style.display = 'flex';
       this.tabOverlay.className = 'tab-view-overlay';
       this.currentUIInstance = null;
       this.board2D.updateArenaBounds();
@@ -109,7 +106,6 @@ class RollADiceGame {
     }
 
     // Switch to overlay tab while 2D canvas simulation keeps running in background
-    this.tableControls.style.display = 'none';
     this.tabOverlay.style.display = 'block';
 
     if (tab === 'tree') {
@@ -132,48 +128,14 @@ class RollADiceGame {
   }
 
   initControls() {
-    // Button to roll/spin all dice
-    this.btnRollAll.addEventListener('click', () => {
-      this.board2D.rollAll(1.2);
-    });
-
-    // Space key: gentle table flick (doesn't send dice flying to the sky!)
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && !e.target.matches('input, textarea, button')) {
-        e.preventDefault();
-        this.board2D.rollAll(1.0);
-      }
-    });
-
-    // Auto-roll toggle
-    this.btnAutoRoll.addEventListener('click', () => {
-      sounds.playClick();
-      gameState.settings.autoRoll = !gameState.settings.autoRoll;
-      this.updateAutoRollBtn();
-      gameState.save();
-    });
-    this.updateAutoRollBtn();
-  }
-
-  updateAutoRollBtn() {
-    const isAuto = !!gameState.settings.autoRoll;
-    this.btnAutoRoll.classList.toggle('active', isAuto);
-    this.autoRollStatus.textContent = `Auto-Roll: ${isAuto ? 'LIGADO' : 'DESLIGADO'}`;
+    // Keyboard shift indicator or helper keys
+    // Dice are actively rolled by moving the mouse over them or via Helper Hands
   }
 
   startLoop() {
     const loop = (now) => {
       const dt = Math.min((now - this.lastTime) / 1000, 0.1);
       this.lastTime = now;
-
-      // Auto-roll timer
-      if (gameState.settings.autoRoll) {
-        this.autoRollTimer += dt;
-        if (this.autoRollTimer >= (gameState.settings.autoRollInterval || 4)) {
-          this.autoRollTimer = 0;
-          this.board2D.rollAll(1.0);
-        }
-      }
 
       // Kinetic pulse skill (tree_master_autoroll)
       if (gameState.skillTree['tree_master_autoroll']) {
